@@ -1,6 +1,11 @@
 { config, pkgs, ... }:
 let
   home-manager = builtins.fetchTarball https://github.com/rycee/home-manager/archive/release-19.09.tar.gz;
+  autoterm = pkgs.writeShellScriptBin "autoterm" ''
+    ARGS=("$@")
+    exec /usr/bin/login "''${ARGS[@]}"
+    ${pkgs.zsh}/bin/zsh "${pkgs.tmux}/bin/tmux -f ${builtins.getEnv "HOME"}/.tmux.conf new-session -A -s vt"
+  '';
 in
 {
   nix.nixPath = [
@@ -66,6 +71,20 @@ in
     domain = "cmacr.ae";
     networkmanager.enable = true;
   };
+
+  # VT220 hacks
+  # --
+  # I use and old DEC VT220 terminal at home.
+  # These hacks put in place auto-login with getty
+  # spawning a tmux session to attach to remotely.
+  environment.etc."gettytab".text = ''
+    ${builtins.readFile ./conf.d/gettytab.orig}
+    #
+    # VT220 via USB serial - added by cmacrae
+    #
+    std.ttyUSB:\
+    	:np:tt=vt220:sp#19200:im=\r\n:al=cmacrae:lo=${autoterm}/bin/autoterm:
+  '';
 
   system.stateVersion = "19.09";
 }
